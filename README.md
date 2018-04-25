@@ -1,2 +1,8 @@
 # rnn-time-to-event
-Recurrent Neural Networks to predict the time to an event
+An approximation of Recurrent Neural Networks to predict the Time to an Event
+
+# Predictive Maintenance with the Turbofan Engine Dataset
+
+# Predictive Maintenance with the Li-ion Battery Aging Dataset
+
+# Resources
