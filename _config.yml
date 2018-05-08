@@ -1,3 +1,15 @@
 remote_theme: mmistakes/minimal-mistakes
 baseurl: "/rnn-time-to-event"
 url: "https://manelmc.github.io" 
+defaults:
+  # _posts
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+      read_time: true
+      comments: true
+      share: true
+      related: true
