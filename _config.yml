@@ -1,6 +1,6 @@
 remote_theme: mmistakes/minimal-mistakes
 baseurl: "/rnn-time-to-event"
-url: "https://manelmc.github.io" 
+url: "https://manelmc.github.io"
 defaults:
   # _posts
   - scope:
@@ -13,3 +13,5 @@ defaults:
       comments: true
       share: true
       related: true
+header:
+  image: /assets/LSTM3-chain-2.png
