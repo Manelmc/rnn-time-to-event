@@ -3,4 +3,7 @@
 <url>
 <loc>http://localhost:4000/rnn-time-to-event/</loc>
 </url>
+<url>
+<loc>http://localhost:4000/rnn-time-to-event/rnn-time-to-event-notebook/</loc>
+</url>
 </urlset>

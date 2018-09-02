@@ -290,9 +290,1523 @@
       <section class="page__content" itemprop="text">
         
         <h1 id="rnn-time-to-event">rnn-time-to-event</h1>
+
+<p>(in construction)</p>
+
 <p>An approximation of Recurrent Neural Networks to predict the Time to an Event</p>
 
 <p><img src="/rnn-time-to-event/assets/images/gif1.gif" alt="useful image" /></p>
+
+<p><a href="https://colab.research.google.com/github/Manelmc/rnn-time-to-event/blob/master/predictive-maintenance-turbofan-engine.ipynb">View in Colaboratory</a></p>
+
+<h1 id="notebook">Notebook</h1>
+
+<p>Predictive Maintenance for the Turbofan Engine Dataset</p>
+
+<h2 id="data-preparation">Data Preparation</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">keras</span>
+<span class="kn">import</span> <span class="nn">keras.backend</span> <span class="k">as</span> <span class="n">K</span>
+
+<span class="k">print</span> <span class="s">"Keras version"</span><span class="p">,</span> <span class="n">keras</span><span class="o">.</span><span class="n">__version__</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+
+<span class="c"># Setting seed for reproducibility</span>
+<span class="n">SEED</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>  
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Using TensorFlow backend.
+
+
+Keras version 2.1.6
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">!</span><span class="n">mkdir</span> <span class="n">Dataset</span>
+<span class="err">!</span><span class="n">mkdir</span> <span class="n">Models</span>
+
+<span class="err">!</span><span class="n">wget</span> <span class="o">-</span><span class="n">q</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">Manelmc</span><span class="o">/</span><span class="n">rnn</span><span class="o">-</span><span class="n">time</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">event</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">Dataset</span><span class="o">/</span><span class="n">PM_test</span><span class="o">.</span><span class="n">txt</span> <span class="o">-</span><span class="n">O</span> <span class="n">Dataset</span><span class="o">/</span><span class="n">PM_test</span><span class="o">.</span><span class="n">txt</span>
+<span class="err">!</span><span class="n">wget</span> <span class="o">-</span><span class="n">q</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">Manelmc</span><span class="o">/</span><span class="n">rnn</span><span class="o">-</span><span class="n">time</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">event</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">Dataset</span><span class="o">/</span><span class="n">PM_train</span><span class="o">.</span><span class="n">txt</span> <span class="o">-</span><span class="n">O</span> <span class="n">Dataset</span><span class="o">/</span><span class="n">PM_train</span><span class="o">.</span><span class="n">txt</span>  
+<span class="err">!</span><span class="n">wget</span> <span class="o">-</span><span class="n">q</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">Manelmc</span><span class="o">/</span><span class="n">rnn</span><span class="o">-</span><span class="n">time</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">event</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">Dataset</span><span class="o">/</span><span class="n">PM_truth</span><span class="o">.</span><span class="n">txt</span> <span class="o">-</span><span class="n">O</span> <span class="n">Dataset</span><span class="o">/</span><span class="n">PM_truth</span><span class="o">.</span><span class="n">txt</span>
+
+<span class="err">!</span><span class="n">ls</span> <span class="n">Dataset</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PM_test.txt  PM_train.txt  PM_truth.txt
+</code></pre></div></div>
+
+<h3 id="turbofan-train-set">Turbofan Train Set</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">preprocessing</span>
+
+<span class="c"># read training data - It is the aircraft engine run-to-failure data.</span>
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s">'Dataset/PM_train.txt'</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s">" "</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">train_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">train_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[[</span><span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">train_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'id'</span><span class="p">,</span> <span class="s">'cycle'</span><span class="p">,</span> <span class="s">'setting1'</span><span class="p">,</span> <span class="s">'setting2'</span><span class="p">,</span> <span class="s">'setting3'</span><span class="p">,</span> <span class="s">'s1'</span><span class="p">,</span> <span class="s">'s2'</span><span class="p">,</span> <span class="s">'s3'</span><span class="p">,</span>
+                     <span class="s">'s4'</span><span class="p">,</span> <span class="s">'s5'</span><span class="p">,</span> <span class="s">'s6'</span><span class="p">,</span> <span class="s">'s7'</span><span class="p">,</span> <span class="s">'s8'</span><span class="p">,</span> <span class="s">'s9'</span><span class="p">,</span> <span class="s">'s10'</span><span class="p">,</span> <span class="s">'s11'</span><span class="p">,</span> <span class="s">'s12'</span><span class="p">,</span> <span class="s">'s13'</span><span class="p">,</span> <span class="s">'s14'</span><span class="p">,</span>
+                     <span class="s">'s15'</span><span class="p">,</span> <span class="s">'s16'</span><span class="p">,</span> <span class="s">'s17'</span><span class="p">,</span> <span class="s">'s18'</span><span class="p">,</span> <span class="s">'s19'</span><span class="p">,</span> <span class="s">'s20'</span><span class="p">,</span> <span class="s">'s21'</span><span class="p">]</span>
+
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">train_df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s">'id'</span><span class="p">,</span><span class="s">'cycle'</span><span class="p">])</span>
+
+<span class="c"># Data Labeling - generate column RUL (Remaining Useful Life or Time to Failure)</span>
+<span class="n">rul</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">train_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s">'id'</span><span class="p">)[</span><span class="s">'cycle'</span><span class="p">]</span><span class="o">.</span><span class="nb">max</span><span class="p">())</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<span class="n">rul</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'id'</span><span class="p">,</span> <span class="s">'max'</span><span class="p">]</span>
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">train_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">rul</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s">'id'</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s">'left'</span><span class="p">)</span>
+<span class="n">train_df</span><span class="p">[</span><span class="s">'RUL'</span><span class="p">]</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="s">'max'</span><span class="p">]</span> <span class="o">-</span> <span class="n">train_df</span><span class="p">[</span><span class="s">'cycle'</span><span class="p">]</span>
+<span class="n">train_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s">'max'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c"># MinMax normalization (from 0 to 1)</span>
+<span class="n">train_df</span><span class="p">[</span><span class="s">'cycle_norm'</span><span class="p">]</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="s">'cycle'</span><span class="p">]</span>
+<span class="n">cols_normalize</span> <span class="o">=</span> <span class="n">train_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">difference</span><span class="p">([</span><span class="s">'id'</span><span class="p">,</span><span class="s">'cycle'</span><span class="p">,</span><span class="s">'RUL'</span><span class="p">,</span><span class="s">'label1'</span><span class="p">,</span><span class="s">'label2'</span><span class="p">])</span>
+<span class="n">min_max_scaler</span> <span class="o">=</span> <span class="n">preprocessing</span><span class="o">.</span><span class="n">MinMaxScaler</span><span class="p">()</span>
+<span class="n">norm_train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">min_max_scaler</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">train_df</span><span class="p">[</span><span class="n">cols_normalize</span><span class="p">]),</span>
+                             <span class="n">columns</span><span class="o">=</span><span class="n">cols_normalize</span><span class="p">,</span>
+                             <span class="n">index</span><span class="o">=</span><span class="n">train_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+<span class="n">join_df</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="n">train_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">cols_normalize</span><span class="p">)]</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">norm_train_df</span><span class="p">)</span>
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">join_df</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">columns</span> <span class="o">=</span> <span class="n">train_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+<span class="n">train_df</span><span class="p">[</span><span class="n">train_df</span><span class="p">[</span><span class="s">"id"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tail</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>id</th>
+      <th>cycle</th>
+      <th>setting1</th>
+      <th>setting2</th>
+      <th>setting3</th>
+      <th>s1</th>
+      <th>s2</th>
+      <th>s3</th>
+      <th>s4</th>
+      <th>s5</th>
+      <th>...</th>
+      <th>s14</th>
+      <th>s15</th>
+      <th>s16</th>
+      <th>s17</th>
+      <th>s18</th>
+      <th>s19</th>
+      <th>s20</th>
+      <th>s21</th>
+      <th>RUL</th>
+      <th>cycle_norm</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>187</th>
+      <td>1</td>
+      <td>188</td>
+      <td>0.114943</td>
+      <td>0.750000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.765060</td>
+      <td>0.683235</td>
+      <td>0.684166</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.091599</td>
+      <td>0.753367</td>
+      <td>0.0</td>
+      <td>0.666667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.286822</td>
+      <td>0.089202</td>
+      <td>4</td>
+      <td>0.518006</td>
+    </tr>
+    <tr>
+      <th>188</th>
+      <td>1</td>
+      <td>189</td>
+      <td>0.465517</td>
+      <td>0.666667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.894578</td>
+      <td>0.547853</td>
+      <td>0.772451</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.090670</td>
+      <td>0.744132</td>
+      <td>0.0</td>
+      <td>0.583333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.263566</td>
+      <td>0.301712</td>
+      <td>3</td>
+      <td>0.520776</td>
+    </tr>
+    <tr>
+      <th>189</th>
+      <td>1</td>
+      <td>190</td>
+      <td>0.344828</td>
+      <td>0.583333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.731928</td>
+      <td>0.614345</td>
+      <td>0.737677</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.065229</td>
+      <td>0.759523</td>
+      <td>0.0</td>
+      <td>0.833333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.271318</td>
+      <td>0.239299</td>
+      <td>2</td>
+      <td>0.523546</td>
+    </tr>
+    <tr>
+      <th>190</th>
+      <td>1</td>
+      <td>191</td>
+      <td>0.500000</td>
+      <td>0.166667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.641566</td>
+      <td>0.682799</td>
+      <td>0.734639</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.075704</td>
+      <td>0.740669</td>
+      <td>0.0</td>
+      <td>0.500000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.240310</td>
+      <td>0.324910</td>
+      <td>1</td>
+      <td>0.526316</td>
+    </tr>
+    <tr>
+      <th>191</th>
+      <td>1</td>
+      <td>192</td>
+      <td>0.551724</td>
+      <td>0.500000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.701807</td>
+      <td>0.662089</td>
+      <td>0.758778</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.056714</td>
+      <td>0.717199</td>
+      <td>0.0</td>
+      <td>0.666667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.263566</td>
+      <td>0.097625</td>
+      <td>0</td>
+      <td>0.529086</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 28 columns</p>
+</div>
+
+<h3 id="turbofan-test-set">Turbofan Test Set</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">preprocessing</span>
+
+<span class="c"># read test data - It is the aircraft engine operating data without failure events recorded.</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s">'Dataset/PM_test.txt'</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s">" "</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">test_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">test_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[[</span><span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">test_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'id'</span><span class="p">,</span> <span class="s">'cycle'</span><span class="p">,</span> <span class="s">'setting1'</span><span class="p">,</span> <span class="s">'setting2'</span><span class="p">,</span> <span class="s">'setting3'</span><span class="p">,</span> <span class="s">'s1'</span><span class="p">,</span> <span class="s">'s2'</span><span class="p">,</span> <span class="s">'s3'</span><span class="p">,</span>
+                     <span class="s">'s4'</span><span class="p">,</span> <span class="s">'s5'</span><span class="p">,</span> <span class="s">'s6'</span><span class="p">,</span> <span class="s">'s7'</span><span class="p">,</span> <span class="s">'s8'</span><span class="p">,</span> <span class="s">'s9'</span><span class="p">,</span> <span class="s">'s10'</span><span class="p">,</span> <span class="s">'s11'</span><span class="p">,</span> <span class="s">'s12'</span><span class="p">,</span> <span class="s">'s13'</span><span class="p">,</span> <span class="s">'s14'</span><span class="p">,</span>
+                     <span class="s">'s15'</span><span class="p">,</span> <span class="s">'s16'</span><span class="p">,</span> <span class="s">'s17'</span><span class="p">,</span> <span class="s">'s18'</span><span class="p">,</span> <span class="s">'s19'</span><span class="p">,</span> <span class="s">'s20'</span><span class="p">,</span> <span class="s">'s21'</span><span class="p">]</span>
+
+<span class="c"># MinMax normalization (from 0 to 1)</span>
+<span class="n">test_df</span><span class="p">[</span><span class="s">'cycle_norm'</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_df</span><span class="p">[</span><span class="s">'cycle'</span><span class="p">]</span>
+<span class="n">norm_test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">min_max_scaler</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">test_df</span><span class="p">[</span><span class="n">cols_normalize</span><span class="p">]),</span>
+                            <span class="n">columns</span><span class="o">=</span><span class="n">cols_normalize</span><span class="p">,</span>
+                            <span class="n">index</span><span class="o">=</span><span class="n">test_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+<span class="n">test_join_df</span> <span class="o">=</span> <span class="n">test_df</span><span class="p">[</span><span class="n">test_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">cols_normalize</span><span class="p">)]</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">norm_test_df</span><span class="p">)</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">test_join_df</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">columns</span> <span class="o">=</span> <span class="n">test_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">test_df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c"># read ground truth data - It contains the information of true remaining cycles for each engine in the testing data.</span>
+<span class="n">truth_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s">'Dataset/PM_truth.txt'</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s">" "</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+<span class="n">truth_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">truth_df</span><span class="o">.</span><span class="n">columns</span><span class="p">[[</span><span class="mi">1</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c"># generate column max for test data</span>
+<span class="n">rul</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">test_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s">'id'</span><span class="p">)[</span><span class="s">'cycle'</span><span class="p">]</span><span class="o">.</span><span class="nb">max</span><span class="p">())</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<span class="n">rul</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'id'</span><span class="p">,</span> <span class="s">'max'</span><span class="p">]</span>
+<span class="n">truth_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'more'</span><span class="p">]</span>
+<span class="n">truth_df</span><span class="p">[</span><span class="s">'id'</span><span class="p">]</span> <span class="o">=</span> <span class="n">truth_df</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">truth_df</span><span class="p">[</span><span class="s">'max'</span><span class="p">]</span> <span class="o">=</span> <span class="n">rul</span><span class="p">[</span><span class="s">'max'</span><span class="p">]</span> <span class="o">+</span> <span class="n">truth_df</span><span class="p">[</span><span class="s">'more'</span><span class="p">]</span>
+<span class="n">truth_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s">'more'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c"># generate RUL for test data</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">test_df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">truth_df</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s">'id'</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s">'left'</span><span class="p">)</span>
+<span class="n">test_df</span><span class="p">[</span><span class="s">'RUL'</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_df</span><span class="p">[</span><span class="s">'max'</span><span class="p">]</span> <span class="o">-</span> <span class="n">test_df</span><span class="p">[</span><span class="s">'cycle'</span><span class="p">]</span>
+<span class="n">test_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s">'max'</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="n">test_df</span><span class="p">[</span><span class="n">test_df</span><span class="p">[</span><span class="s">"id"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tail</span><span class="p">()</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>id</th>
+      <th>cycle</th>
+      <th>setting1</th>
+      <th>setting2</th>
+      <th>setting3</th>
+      <th>s1</th>
+      <th>s2</th>
+      <th>s3</th>
+      <th>s4</th>
+      <th>s5</th>
+      <th>...</th>
+      <th>s14</th>
+      <th>s15</th>
+      <th>s16</th>
+      <th>s17</th>
+      <th>s18</th>
+      <th>s19</th>
+      <th>s20</th>
+      <th>s21</th>
+      <th>cycle_norm</th>
+      <th>RUL</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>26</th>
+      <td>1</td>
+      <td>27</td>
+      <td>0.459770</td>
+      <td>0.583333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.262048</td>
+      <td>0.340310</td>
+      <td>0.304862</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.140881</td>
+      <td>0.479030</td>
+      <td>0.0</td>
+      <td>0.333333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.565891</td>
+      <td>0.688898</td>
+      <td>0.072022</td>
+      <td>116</td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>1</td>
+      <td>28</td>
+      <td>0.626437</td>
+      <td>0.916667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.216867</td>
+      <td>0.505995</td>
+      <td>0.321404</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.180359</td>
+      <td>0.469796</td>
+      <td>0.0</td>
+      <td>0.333333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.534884</td>
+      <td>0.629660</td>
+      <td>0.074792</td>
+      <td>115</td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>1</td>
+      <td>29</td>
+      <td>0.580460</td>
+      <td>0.583333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.222892</td>
+      <td>0.351210</td>
+      <td>0.267725</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.171277</td>
+      <td>0.370527</td>
+      <td>0.0</td>
+      <td>0.333333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.682171</td>
+      <td>0.646092</td>
+      <td>0.077562</td>
+      <td>114</td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>1</td>
+      <td>30</td>
+      <td>0.356322</td>
+      <td>0.833333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.475904</td>
+      <td>0.320035</td>
+      <td>0.316003</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.179843</td>
+      <td>0.331281</td>
+      <td>0.0</td>
+      <td>0.250000</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.736434</td>
+      <td>0.707954</td>
+      <td>0.080332</td>
+      <td>113</td>
+    </tr>
+    <tr>
+      <th>30</th>
+      <td>1</td>
+      <td>31</td>
+      <td>0.465517</td>
+      <td>0.833333</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.412651</td>
+      <td>0.221932</td>
+      <td>0.281229</td>
+      <td>0.0</td>
+      <td>...</td>
+      <td>0.155692</td>
+      <td>0.298192</td>
+      <td>0.0</td>
+      <td>0.416667</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.519380</td>
+      <td>0.636564</td>
+      <td>0.083102</td>
+      <td>112</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows × 28 columns</p>
+</div>
+
+<h3 id="apply-right-padding-to-all-the-sequences">Apply right padding to all the sequences</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">pad_sequence</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">max_seq_length</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="s">"""
+    Applies right padding to a sequences until max_seq_length with mask
+    """</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_seq_length</span> <span class="o">-</span> <span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)),</span>
+                  <span class="s">"constant"</span><span class="p">,</span> <span class="n">constant_values</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pad_engines</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="s">"""
+    Applies right padding to the columns "cols" of all the engines
+    """</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">pad_sequence</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s">'id'</span><span class="p">]</span> <span class="o">==</span> <span class="n">batch_id</span><span class="p">][</span><span class="n">cols</span><span class="p">],</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">batch_id</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="s">'id'</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()])</span>
+
+<span class="n">max_batch_len</span> <span class="o">=</span> <span class="n">train_df</span><span class="p">[</span><span class="s">'id'</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="nb">max</span><span class="p">()</span>
+<span class="n">train_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s">'s'</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">22</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="s">'setting1'</span><span class="p">,</span> <span class="s">'setting2'</span><span class="p">,</span> <span class="s">'setting3'</span><span class="p">,</span> <span class="s">'cycle_norm'</span><span class="p">]</span>
+<span class="n">test_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s">"RUL"</span><span class="p">]</span>
+
+<span class="n">X</span> <span class="o">=</span> <span class="n">pad_engines</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">train_cols</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">)</span>
+<span class="n">Y</span> <span class="o">=</span> <span class="n">pad_engines</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">test_cols</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="split-into-train-validation-and-test">Split into train, validation and test</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="c"># Split into train and validation</span>
+<span class="n">train_X</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="p">,</span> <span class="n">val_Y</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.20</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">SEED</span><span class="p">)</span>
+
+<span class="c"># Test set from CMAPSS</span>
+<span class="n">test_X</span> <span class="o">=</span> <span class="n">pad_engines</span><span class="p">(</span><span class="n">test_df</span><span class="p">,</span> <span class="n">train_cols</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">)</span>
+<span class="n">test_Y</span> <span class="o">=</span> <span class="n">pad_engines</span><span class="p">(</span><span class="n">test_df</span><span class="p">,</span> <span class="n">test_cols</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">)</span>
+
+<span class="c"># In the WTTE-RNN architecture we will predict 2 parameters (alpha and beta)</span>
+<span class="c"># alpha is initialised to 1</span>
+<span class="n">train_Y_wtte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">train_Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">train_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">val_Y_wtte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">val_Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">val_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">test_Y_wtte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">test_Y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">test_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">"Train:</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="s">"  X:"</span><span class="p">,</span> <span class="n">train_X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y:"</span><span class="p">,</span> <span class="n">train_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y_wtte:"</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="o">.</span><span class="n">shape</span>
+<span class="k">print</span> <span class="s">"</span><span class="se">\n</span><span class="s">Validation:</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="s">"  X:"</span><span class="p">,</span> <span class="n">val_X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y:"</span><span class="p">,</span> <span class="n">val_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y_wtte:"</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="o">.</span><span class="n">shape</span>
+<span class="k">print</span> <span class="s">"</span><span class="se">\n</span><span class="s">Test:</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="s">"  X:"</span><span class="p">,</span> <span class="n">test_X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y:"</span><span class="p">,</span> <span class="n">test_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s">"</span><span class="se">\n</span><span class="s">  Y_wtte:"</span><span class="p">,</span> <span class="n">test_Y_wtte</span><span class="o">.</span><span class="n">shape</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Train:
+  X: (80, 362, 25)
+  Y: (80, 362, 1)
+  Y_wtte: (80, 362, 2)
+
+Validation:
+  X: (20, 362, 25)
+  Y: (20, 362, 1)
+  Y_wtte: (20, 362, 2)
+
+Test:
+  X: (100, 362, 25)
+  Y: (100, 362, 1)
+  Y_wtte: (100, 362, 2)
+</code></pre></div></div>
+
+<h2 id="baseline">Baseline</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Masking</span>
+<span class="kn">from</span> <span class="nn">keras.layers.core</span> <span class="kn">import</span> <span class="n">Activation</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="kn">import</span> <span class="n">Sequential</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Dense</span><span class="p">,</span> <span class="n">LSTM</span><span class="p">,</span> <span class="n">TimeDistributed</span>
+<span class="kn">from</span> <span class="nn">keras.callbacks</span> <span class="kn">import</span> <span class="n">EarlyStopping</span><span class="p">,</span> <span class="n">ModelCheckpoint</span>
+
+<span class="c"># Model path</span>
+<span class="n">baseline_path</span> <span class="o">=</span> <span class="s">"baseline_model"</span>
+
+<span class="c"># Callbacks</span>
+<span class="n">early_stopping</span> <span class="o">=</span> <span class="n">EarlyStopping</span><span class="p">(</span><span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                               <span class="n">min_delta</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">patience</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                               <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">)</span>
+<span class="n">checkpoint</span> <span class="o">=</span> <span class="n">ModelCheckpoint</span><span class="p">(</span><span class="n">baseline_path</span><span class="p">,</span>
+                             <span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                             <span class="n">save_best_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">,</span>
+                             <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="c"># dimensions of the model</span>
+<span class="n">nb_features</span> <span class="o">=</span> <span class="n">train_X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">nb_out</span> <span class="o">=</span> <span class="n">train_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+<span class="c"># Masking layer so the right padding is ignored</span>
+<span class="c"># at each layer of the network</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Masking</span><span class="p">(</span><span class="n">mask_value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                  <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">)))</span>
+<span class="c"># Then there s an LSTM layer with 100 units</span>
+<span class="c"># Recurrent Dropout is also applied after each</span>
+<span class="c"># LSTM layer to control overfitting.</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span>
+         <span class="n">units</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+         <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+         <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="c"># followed by another LSTM layer with 50 units</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span>
+         <span class="n">units</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+         <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+         <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="c"># Final layer is a Time-Distributed Dense layer</span>
+<span class="c"># with a single unit with an Exponential activation</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">TimeDistributed</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="n">nb_out</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="n">K</span><span class="o">.</span><span class="n">exp</span><span class="p">)))</span>
+<span class="n">model</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s">"mse"</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">RMSprop</span><span class="p">())</span>
+
+<span class="k">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+
+<span class="c"># fit the network</span>
+<span class="n">history</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+                    <span class="n">validation_data</span><span class="o">=</span><span class="p">(</span><span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y</span><span class="p">),</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                    <span class="n">verbose</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">callbacks</span> <span class="o">=</span> <span class="p">[</span><span class="n">early_stopping</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">])</span>
+
+<span class="c"># list all data in history</span>
+<span class="k">print</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+masking_1 (Masking)          (None, 362, 25)           0         
+_________________________________________________________________
+lstm_1 (LSTM)                (None, 362, 100)          50400     
+_________________________________________________________________
+lstm_2 (LSTM)                (None, 362, 50)           30200     
+_________________________________________________________________
+time_distributed_1 (TimeDist (None, 362, 1)            51        
+=================================================================
+Total params: 80,651
+Trainable params: 80,651
+Non-trainable params: 0
+_________________________________________________________________
+...
+ - 14s - loss: 1145.8300 - val_loss: 684.7579
+Epoch 309/500
+ - 15s - loss: 1483.2823 - val_loss: 665.0914
+Epoch 310/500
+ - 15s - loss: 1484.7324 - val_loss: 676.9185
+Epoch 311/500
+ - 15s - loss: 1204.1237 - val_loss: 621.4485
+Epoch 312/500
+ - 15s - loss: 1293.4628 - val_loss: 611.2367
+Epoch 313/500
+ - 15s - loss: 1410.6540 - val_loss: 599.2881
+Epoch 314/500
+ - 15s - loss: 1280.4136 - val_loss: 651.2672
+Epoch 315/500
+ - 15s - loss: 1233.0307 - val_loss: 634.8255
+Epoch 316/500
+ - 15s - loss: 1339.8630 - val_loss: 702.0963
+Epoch 317/500
+ - 14s - loss: 1249.2757 - val_loss: 789.5427
+Epoch 318/500
+ - 15s - loss: 1364.1424 - val_loss: 834.3046
+['loss', 'val_loss']
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if training in Colaboratory (preferably from Chrome)</span>
+<span class="c"># Downloads the model after the training finishes</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">files</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">baseline_path</span><span class="p">)</span>
+
+<span class="c"># Move the model to the expected folder</span>
+<span class="err">!</span><span class="n">mv</span> <span class="n">baseline_path</span> <span class="n">Models</span><span class="o">/</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Validation loss vs the Training loss</span>
+
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"loss"</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"val_loss"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x7f6039681c50&gt;]
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_16_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if you want to upload a model to Collaboratory</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">uploaded</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">upload</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">uploaded</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'User uploaded file "{name}" with length {length} bytes'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">uploaded</span><span class="p">[</span><span class="n">fn</span><span class="p">])))</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> &lt;input type="file" id="files-f6e556f7-746f-4e94-b68a-9859a114544e" name="files[]" multiple disabled /&gt;
+ &lt;output id="result-f6e556f7-746f-4e94-b68a-9859a114544e"&gt;
+  Upload widget is only available when the cell has been executed in the
+  current browser session. Please rerun this cell to enable.
+  &lt;/output&gt;
+  &lt;script src="/nbextensions/google.colab/files.js"&gt;&lt;/script&gt;
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">keras.models</span> <span class="kn">import</span> <span class="n">load_model</span>
+
+<span class="c"># It's important to load the model after the training</span>
+<span class="c"># The keras Checkpoint will save the best model in terms</span>
+<span class="c"># of the validation loss in the specified path</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="s">"Models/"</span> <span class="o">+</span> <span class="n">baseline_path</span><span class="p">,</span> <span class="n">custom_objects</span><span class="o">=</span><span class="p">{</span><span class="s">"exp"</span><span class="p">:</span> <span class="n">K</span><span class="o">.</span><span class="n">exp</span><span class="p">})</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">sqrt</span>
+
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">mean_absolute_error</span><span class="p">,</span> <span class="n">r2_score</span>
+
+<span class="c"># We save the validation errors to later compare the models</span>
+<span class="n">validation_baseline</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">val_X</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">evaluation_data</span><span class="p">,</span> <span class="n">weibull_function</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="s">"""
+    Generate scores dataframe and plot the RUL
+    """</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">score_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s">"Method"</span><span class="p">:</span> <span class="p">[</span><span class="s">"MAE"</span><span class="p">,</span> <span class="s">"RMSE"</span><span class="p">,</span> <span class="s">"R2"</span><span class="p">]})</span>
+    <span class="k">for</span> <span class="n">name_set</span><span class="p">,</span> <span class="n">train_set</span><span class="p">,</span> <span class="n">test_set</span> <span class="ow">in</span> <span class="n">evaluation_data</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">weibull_function</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">y_pred</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">train_set</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y_pred</span> <span class="o">=</span> <span class="p">[</span><span class="n">weibull_function</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">train_set</span><span class="p">)</span>
+                      <span class="k">for</span> <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">test_set</span><span class="p">[:,:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="c"># To validate we remove the right padding</span>
+        <span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">l</span><span class="p">))</span>
+        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
+        <span class="n">score_mae</span> <span class="o">=</span> <span class="s">"{0:.2f}"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mean_absolute_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
+        <span class="n">score_rmse</span> <span class="o">=</span> <span class="s">"{0:.2f}"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mean_squared_error</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)))</span>
+        <span class="n">score_r2</span> <span class="o">=</span> <span class="s">"{0:.3f}"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r2_score</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">))</span>
+        <span class="n">score_df</span><span class="p">[</span><span class="n">name_set</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">score_mae</span><span class="p">,</span> <span class="n">score_rmse</span><span class="p">,</span> <span class="n">score_r2</span><span class="p">]</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="n">name_set</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_fontsize</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2500</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y_true</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2500</span><span class="p">])</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y_pred</span><span class="p">[</span><span class="mi">2500</span><span class="p">:</span><span class="mi">5000</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">y_true</span><span class="p">[</span><span class="mi">2500</span><span class="p">:</span><span class="mi">5000</span><span class="p">])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">hspace</span><span class="o">=</span><span class="mf">0.45</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="n">i</span><span class="o">*</span><span class="mf">2.2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">score_df</span><span class="o">.</span><span class="n">T</span>
+
+<span class="n">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                  <span class="p">[(</span><span class="s">"Train"</span><span class="p">,</span> <span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s">"Validation"</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s">"Test"</span><span class="p">,</span> <span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y</span><span class="p">)])</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Method</th>
+      <td>MAE</td>
+      <td>RMSE</td>
+      <td>R2</td>
+    </tr>
+    <tr>
+      <th>Train</th>
+      <td>21.19</td>
+      <td>33.57</td>
+      <td>0.766</td>
+    </tr>
+    <tr>
+      <th>Validation</th>
+      <td>17.36</td>
+      <td>23.98</td>
+      <td>0.866</td>
+    </tr>
+    <tr>
+      <th>Test</th>
+      <td>27.03</td>
+      <td>37.41</td>
+      <td>0.598</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_19_1.png" alt="png" /></p>
+
+<h2 id="adapting-to-wtte-rnn">Adapting to WTTE-RNN</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install wtte package from Martinsson</span>
+
+<span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="n">wtte</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Collecting wtte
+  Downloading https://files.pythonhosted.org/packages/95/0e/8affc53f47d4ceb69fc80484fd87ad886c6cab7f4ce0add38076b6092d76/wtte-1.1.1-py2.py3-none-any.whl
+Requirement already satisfied: scipy in /usr/local/lib/python2.7/dist-packages (from wtte) (0.19.1)
+Requirement already satisfied: numpy in /usr/local/lib/python2.7/dist-packages (from wtte) (1.14.5)
+Requirement already satisfied: keras&gt;=2.0 in /usr/local/lib/python2.7/dist-packages (from wtte) (2.1.6)
+Requirement already satisfied: pandas in /usr/local/lib/python2.7/dist-packages (from wtte) (0.22.0)
+Collecting six==1.10.0 (from wtte)
+  Downloading https://files.pythonhosted.org/packages/c8/0a/b6723e1bc4c516cb687841499455a8505b44607ab535be01091c0f24f079/six-1.10.0-py2.py3-none-any.whl
+Requirement already satisfied: pyyaml in /usr/local/lib/python2.7/dist-packages (from keras&gt;=2.0-&gt;wtte) (3.13)
+Requirement already satisfied: h5py in /usr/local/lib/python2.7/dist-packages (from keras&gt;=2.0-&gt;wtte) (2.8.0)
+Requirement already satisfied: pytz&gt;=2011k in /usr/local/lib/python2.7/dist-packages (from pandas-&gt;wtte) (2018.5)
+Requirement already satisfied: python-dateutil in /usr/local/lib/python2.7/dist-packages (from pandas-&gt;wtte) (2.5.3)
+Installing collected packages: six, wtte
+  Found existing installation: six 1.11.0
+    Uninstalling six-1.11.0:
+      Successfully uninstalled six-1.11.0
+Successfully installed six-1.10.0 wtte-1.1.1
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Loss and activation functions from Martinsson</span>
+<span class="c"># These are not used in the final version because</span>
+<span class="c"># the wtte package has useful regularization tools</span>
+
+<span class="k">def</span> <span class="nf">weibull_loglik_discrete</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="n">K</span><span class="o">.</span><span class="n">epsilon</span><span class="p">()):</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">hazard0</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="nb">pow</span><span class="p">((</span><span class="n">y</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">)</span> <span class="o">/</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">hazard1</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="nb">pow</span><span class="p">((</span><span class="n">y</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">u</span> <span class="o">*</span> <span class="n">K</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">K</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">hazard1</span> <span class="o">-</span> <span class="n">hazard0</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">epsilon</span><span class="p">))</span> <span class="o">-</span> <span class="n">hazard1</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">loss</span>
+
+<span class="k">def</span> <span class="nf">activation_weibull</span><span class="p">(</span><span class="n">y_true</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">a</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">K</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Masking</span>
+<span class="kn">from</span> <span class="nn">keras.layers.core</span> <span class="kn">import</span> <span class="n">Activation</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="kn">import</span> <span class="n">Sequential</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Dense</span><span class="p">,</span> <span class="n">LSTM</span><span class="p">,</span> <span class="n">TimeDistributed</span><span class="p">,</span> <span class="n">Lambda</span>
+<span class="kn">from</span> <span class="nn">keras.callbacks</span> <span class="kn">import</span> <span class="n">EarlyStopping</span><span class="p">,</span> <span class="n">TerminateOnNaN</span><span class="p">,</span> <span class="n">ModelCheckpoint</span>
+<span class="kn">import</span> <span class="nn">wtte.weibull</span> <span class="k">as</span> <span class="n">weibull</span>
+<span class="kn">import</span> <span class="nn">wtte.wtte</span> <span class="k">as</span> <span class="n">wtte</span>
+
+<span class="c"># Since we use a lambda in the last layer the model</span>
+<span class="c"># is not saved well in keras, instead we save the weights.</span>
+<span class="c"># This requires compiling the model to load the weights</span>
+<span class="n">baseline_wtte_path</span> <span class="o">=</span> <span class="s">"baseline_wtte_model_weights"</span>
+<span class="c"># Callbacks</span>
+<span class="n">early_stopping</span> <span class="o">=</span> <span class="n">EarlyStopping</span><span class="p">(</span><span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                               <span class="n">min_delta</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">patience</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                               <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">)</span>
+<span class="n">checkpoint</span> <span class="o">=</span> <span class="n">ModelCheckpoint</span><span class="p">(</span><span class="n">baseline_wtte_path</span><span class="p">,</span>
+                             <span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                             <span class="n">save_best_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">save_weights_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">,</span>
+                             <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">nb_features</span> <span class="o">=</span> <span class="n">train_X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">nb_out</span> <span class="o">=</span> <span class="n">train_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Masking</span><span class="p">(</span><span class="n">mask_value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                  <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">)))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span>
+         <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">),</span>
+         <span class="n">units</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+         <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+         <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSTM</span><span class="p">(</span>
+          <span class="n">units</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+          <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+          <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">TimeDistributed</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="c"># uncomment this line and comment the next to use</span>
+<span class="c"># activation_weibull function:</span>
+<span class="c"># model.add(Activation(activation_weibull))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Lambda</span><span class="p">(</span><span class="n">wtte</span><span class="o">.</span><span class="n">output_lambda</span><span class="p">,</span>
+                 <span class="n">arguments</span><span class="o">=</span><span class="p">{</span><span class="c"># Initialization value around it's scale</span>
+                            <span class="s">"init_alpha"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">train_Y_wtte</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]),</span>
+                            <span class="c"># Set a maximum</span>
+                            <span class="s">"max_beta_value"</span><span class="p">:</span> <span class="mf">10.0</span>
+                           <span class="p">},</span>
+                <span class="p">))</span>
+<span class="c"># Same for the loss "weibull_loglik_discrete"</span>
+<span class="c"># model.compile(loss=weibull_loglik_discrete, optimizer='rmsprop')</span>
+<span class="c"># We use clipping on the loss</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">wtte</span><span class="o">.</span><span class="n">Loss</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s">'discrete'</span><span class="p">,</span> <span class="n">clip_prob</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span><span class="o">.</span><span class="n">loss_function</span>
+
+<span class="n">model</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s">'rmsprop'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+
+<span class="c"># fit the network</span>
+<span class="n">history</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+                    <span class="n">validation_data</span><span class="o">=</span><span class="p">(</span><span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">callbacks</span> <span class="o">=</span> <span class="p">[</span><span class="n">early_stopping</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="n">TerminateOnNaN</span><span class="p">()])</span>
+
+<span class="c"># list all data in history</span>
+<span class="k">print</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+masking_4 (Masking)          (None, None, 25)          0         
+_________________________________________________________________
+lstm_7 (LSTM)                (None, None, 100)         50400     
+_________________________________________________________________
+lstm_8 (LSTM)                (None, None, 50)          30200     
+_________________________________________________________________
+time_distributed_4 (TimeDist (None, None, 2)           102       
+_________________________________________________________________
+lambda_2 (Lambda)            (None, None, 2)           0         
+=================================================================
+Total params: 80,702
+Trainable params: 80,702
+Non-trainable params: 0
+_________________________________________________________________
+...
+ - 12s - loss: 2.5586 - val_loss: 2.4429
+Epoch 353/500
+ - 13s - loss: 2.5923 - val_loss: 2.5299
+Epoch 354/500
+ - 12s - loss: 2.6591 - val_loss: 2.4070
+Epoch 355/500
+ - 12s - loss: 2.5594 - val_loss: 2.5139
+Epoch 356/500
+ - 13s - loss: 2.5870 - val_loss: 2.4082
+Epoch 357/500
+ - 12s - loss: 2.6275 - val_loss: 2.4218
+['loss', 'val_loss']
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if training in Colaboratory (preferably from Chrome)</span>
+<span class="c"># Downloads the model after the training finishes</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">files</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">baseline_wtte_path</span><span class="p">)</span>
+
+<span class="c"># Move the model to the expected folder</span>
+<span class="err">!</span><span class="n">mv</span> <span class="n">baseline_wtte_path</span> <span class="n">Models</span><span class="o">/</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"loss"</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"val_loss"</span><span class="p">])</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x7f351865d990&gt;]
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_26_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if you want to upload a model to Collaboratory</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">uploaded</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">upload</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">uploaded</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'User uploaded file "{name}" with length {length} bytes'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">uploaded</span><span class="p">[</span><span class="n">fn</span><span class="p">])))</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> &lt;input type="file" id="files-8f58d2a2-d3f6-43fa-93dc-a6fbf59eed70" name="files[]" multiple disabled /&gt;
+ &lt;output id="result-8f58d2a2-d3f6-43fa-93dc-a6fbf59eed70"&gt;
+  Upload widget is only available when the cell has been executed in the
+  current browser session. Please rerun this cell to enable.
+  &lt;/output&gt;
+  &lt;script src="/nbextensions/google.colab/files.js"&gt;&lt;/script&gt;
+
+
+Saving baseline_wtte_model_weights (1) to baseline_wtte_model_weights (1)
+User uploaded file "baseline_wtte_model_weights (1)" with length 340528 bytes
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Compile model first to load weights</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">load_weights</span><span class="p">(</span><span class="s">"Models/"</span> <span class="o">+</span> <span class="n">baseline_wtte_path</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="weibull-methods">Weibull Methods</h3>
+
+<p>$\mu = \beta\Gamma(1 + \alpha^{-1})$</p>
+
+<p>$\sigma^2 = \beta^2[\Gamma(1 + 2\alpha^{-1}) - \Gamma^2(1 + \alpha^{-1})]$</p>
+
+<p>$mode = \beta\frac{\alpha-1}{\alpha}^{1/\alpha}$</p>
+
+<p>Inverse CDF $ = \beta (-\log(1 - x))^\frac{1}{\alpha} $ when $ 0&lt;x&lt;1 $</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">sqrt</span>
+
+<span class="k">def</span> <span class="nf">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">beta</span><span class="o">*</span><span class="n">gamma</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">1.</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mode_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">beta</span><span class="o">*</span><span class="p">((</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mf">1.</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span> <span class="k">if</span> <span class="n">alpha</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">0</span>
+
+<span class="k">def</span> <span class="nf">median_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">beta</span><span class="o">*</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mf">1.</span><span class="o">/</span><span class="n">alpha</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">var_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">beta</span><span class="o">**</span><span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="n">gamma</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">2.</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span> <span class="o">-</span> <span class="n">gamma</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mf">1.</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">alpha</span><span class="o">/</span><span class="n">beta</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="o">/</span><span class="n">beta</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="n">alpha</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span><span class="o">/</span><span class="n">beta</span><span class="p">)</span><span class="o">**</span><span class="n">alpha</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">inverse_cdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">beta</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">((</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">1.</span><span class="o">-</span><span class="n">x</span><span class="p">)),</span> <span class="mf">1.</span><span class="o">/</span><span class="n">alpha</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">survival_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">e</span><span class="o">**-</span><span class="p">((</span><span class="n">x</span><span class="o">/</span><span class="n">beta</span><span class="p">)</span><span class="o">**</span><span class="n">alpha</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="mean-mode-and-median">Mean, Mode and Median</h3>
+
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Visualisation_mode_median_mean.svg/150px-Visualisation_mode_median_mean.svg.png" alt="" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="k">print</span> <span class="s">"Mode"</span>
+<span class="k">print</span> <span class="n">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                        <span class="p">[(</span><span class="s">"Train"</span><span class="p">,</span> <span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Validation"</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Test"</span><span class="p">,</span> <span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y_wtte</span><span class="p">)],</span>
+                        <span class="n">weibull_function</span> <span class="o">=</span> <span class="n">mode_weibull</span><span class="p">)</span>
+
+<span class="c"># comment the next line to visualise the plot for the mode</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="k">print</span> <span class="s">"</span><span class="se">\n</span><span class="s">Median"</span>
+<span class="k">print</span> <span class="n">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                        <span class="p">[(</span><span class="s">"Train"</span><span class="p">,</span> <span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Validation"</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Test"</span><span class="p">,</span> <span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y_wtte</span><span class="p">)],</span>
+                        <span class="n">weibull_function</span> <span class="o">=</span> <span class="n">median_weibull</span><span class="p">)</span>
+
+<span class="c"># comment the next line to visualise the plot for the median</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c"># We save the validation errors to later compare the models</span>
+<span class="n">validation_wtte</span> <span class="o">=</span> <span class="p">[</span><span class="n">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">val_X</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+
+<span class="k">print</span> <span class="s">"</span><span class="se">\n</span><span class="s">Mean"</span>
+<span class="k">print</span> <span class="n">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                        <span class="p">[(</span><span class="s">"Train"</span><span class="p">,</span> <span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Validation"</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span>
+                         <span class="p">(</span><span class="s">"Test"</span><span class="p">,</span> <span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y_wtte</span><span class="p">)],</span>
+                        <span class="n">weibull_function</span> <span class="o">=</span> <span class="n">mean_weibull</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Mode
+                0      1      2
+Method        MAE   RMSE     R2
+Train       21.53  34.69  0.750
+Validation  17.94  26.48  0.836
+Test        27.46  38.59  0.572
+
+Median
+                0      1      2
+Method        MAE   RMSE     R2
+Train       21.05  33.51  0.767
+Validation  17.79  25.48  0.848
+Test        26.72  37.49  0.596
+
+Mean
+                0      1      2
+Method        MAE   RMSE     R2
+Train       20.94  33.14  0.772
+Validation  17.79  25.26  0.851
+Test        26.51  37.22  0.602
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_33_1.png" alt="png" /></p>
+
+<h3 id="evolution-of-the-pdf-through-the-cycles-of-an-engine-plot">Evolution of the pdf through the cycles of an engine (PLOT)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">random</span>
+
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="n">sns</span>
+
+
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">lot</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">train_X</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">lot</span> <span class="o">+=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">val_X</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">lot</span> <span class="o">+=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">test_X</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="n">palette</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">sns</span><span class="o">.</span><span class="n">color_palette</span><span class="p">(</span><span class="s">"RdBu_r"</span><span class="p">,</span> <span class="mi">250</span><span class="p">)))</span>
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">j</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">lot</span><span class="p">:</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="nb">all</span><span class="p">(</span><span class="n">batch</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">y_pred_wtte</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">400.</span><span class="p">)</span>
+
+    <span class="n">freq</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+
+    <span class="n">i</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">for</span> <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">y_pred_wtte</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="n">freq</span><span class="p">][</span><span class="mi">2</span><span class="p">:]:</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">mode_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">palette</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">mean</span><span class="p">)]</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">palette</span><span class="p">)</span> <span class="k">else</span> <span class="n">palette</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.07</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">300</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([])</span>
+    <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="s">"Train"</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="s">"Validation"</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">8</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">set_text</span><span class="p">(</span><span class="s">"Test"</span><span class="p">)</span>
+    <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplots_adjust</span><span class="p">(</span><span class="n">wspace</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">hspace</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_35_0.png" alt="png" /></p>
+
+<h3 id="confidence-interval-of-the-weibull-distribution">Confidence Interval of the Weibull Distribution</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">dweibull</span>
+
+<span class="n">batch</span> <span class="o">=</span> <span class="n">lot</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">size</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="nb">all</span><span class="p">(</span><span class="n">batch</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">y_pred_wtte</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">y_pred_wtte</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">20</span><span class="p">]:</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">300.</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="n">palette</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">mean</span><span class="p">)])</span>
+    <span class="c"># alpha is the shape parameter</span>
+    <span class="n">conf</span> <span class="o">=</span> <span class="n">dweibull</span><span class="o">.</span><span class="n">interval</span><span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">mean</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">fill</span><span class="p">([</span><span class="n">conf</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">conf</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">+</span> <span class="p">[</span><span class="n">conf</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span>
+             <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">pdf_weibull</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">conf</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">))</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+             <span class="n">color</span><span class="o">=</span><span class="n">palette</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">mean</span><span class="p">)],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+
+<span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+<span class="n">axes</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+<span class="n">axes</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">300.</span><span class="p">])</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/anaconda2/envs/ALL_BF/lib/python2.7/site-packages/ipykernel_launcher.py:16: RuntimeWarning: invalid value encountered in power
+  app.launch_new_instance()
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_37_1.png" alt="png" /></p>
+
+<h3 id="evolution-of-the-pdf-through-the-cycles-of-an-engine-gifs">Evolution of the pdf through the cycles of an engine (GIFs)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">gamma</span>
+
+<span class="kn">from</span> <span class="nn">matplotlib.animation</span> <span class="kn">import</span> <span class="n">FuncAnimation</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">dweibull</span>
+
+
+<span class="k">def</span> <span class="nf">generate_gif</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_true</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="c"># remove mask if exists</span>
+    <span class="n">y_true</span> <span class="o">=</span> <span class="n">y_true</span><span class="p">[</span><span class="n">y_true</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">y_pred</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[:</span><span class="n">y_true</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+    <span class="n">frames</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+
+    <span class="c"># pad, w_pad, h_pad, and rect</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+    <span class="k">global</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_tight_layout</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">300.</span><span class="p">)</span>
+    <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">line1</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">))</span>
+    <span class="k">global</span> <span class="n">i</span><span class="p">,</span> <span class="n">acc_y_true</span><span class="p">,</span> <span class="n">acc_y_pred</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">predict_mean</span> <span class="o">=</span> <span class="n">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">y_true</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s">'bo'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">"True"</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">predict_mean</span><span class="p">,</span> <span class="s">'o'</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">"orange"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">"Predicted"</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">"upper right"</span><span class="p">)</span>
+    <span class="c"># limits</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.07</span><span class="p">])</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="n">y_true</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">10</span><span class="p">])</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span><span class="o">/</span><span class="n">freq</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([])</span>
+    <span class="c"># acc values</span>
+    <span class="n">acc_y_true</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">acc_y_pred</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">instant</span><span class="p">):</span>
+        <span class="n">y_true_t</span><span class="p">,</span> <span class="n">y_pred_t</span> <span class="o">=</span> <span class="n">instant</span>
+        <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="n">y_pred_t</span>
+        <span class="c"># print y_true</span>
+        <span class="n">pdf</span> <span class="o">=</span> <span class="n">pdf_weibull</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+        <span class="n">line1</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="n">pdf</span><span class="p">)</span>
+        <span class="k">global</span> <span class="n">i</span><span class="p">,</span> <span class="n">acc_y_true</span><span class="p">,</span> <span class="n">acc_y_pred</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">))</span>
+        <span class="n">acc_y_pred</span> <span class="o">+=</span> <span class="p">[</span><span class="n">mean</span><span class="p">]</span>
+        <span class="n">acc_y_true</span> <span class="o">+=</span> <span class="p">[</span><span class="n">y_true_t</span><span class="p">]</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">acc_y_true</span><span class="p">)),</span> <span class="n">acc_y_true</span><span class="p">,</span> <span class="s">'b'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">"True"</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">acc_y_pred</span><span class="p">)),</span> <span class="n">acc_y_pred</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">"orange"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">"Predicted"</span><span class="p">)</span>
+        <span class="n">conf</span> <span class="o">=</span> <span class="n">dweibull</span><span class="o">.</span><span class="n">interval</span><span class="p">(</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">mean</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">"PDF Weibull Distrib. (Mean: "</span> <span class="o">+</span> <span class="s">"{0:.1f}"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span>
+                     <span class="o">+</span> <span class="s">", Std: "</span> <span class="o">+</span> <span class="s">"{0:.1f}"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span> <span class="o">+</span> <span class="s">")"</span>
+                     <span class="o">+</span> <span class="s">" CI 95</span><span class="si">%</span><span class="s">: [{0:.1f}, {1:.1f}]"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">*</span><span class="n">conf</span><span class="p">))</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">"Real RUL: "</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">y_true_t</span><span class="p">)</span> <span class="o">+</span> <span class="s">" cycles"</span><span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">anim</span> <span class="o">=</span> <span class="n">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="n">freq</span><span class="p">])</span>
+    <span class="n">anim</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">writer</span><span class="o">=</span><span class="s">"imagemagick"</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">batch_X</span><span class="p">,</span> <span class="n">batch_Y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y</span><span class="p">))</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">batch_X</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">gif_path</span> <span class="o">=</span> <span class="s">"Images/train_engine_sample.gif"</span>
+<span class="n">generate_gif</span><span class="p">(</span><span class="n">y_pred_wtte</span><span class="p">,</span> <span class="n">batch_Y</span><span class="p">,</span> <span class="n">gif_path</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">"Train Sample"</span>
+<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">HTML</span>
+<span class="n">HTML</span><span class="p">(</span><span class="s">'&lt;img src="'</span><span class="o">+</span> <span class="n">gif_path</span> <span class="o">+</span> <span class="s">'"&gt;'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Train Sample
+</code></pre></div></div>
+
+<p><img src="Images/train_engine_sample.gif" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">batch_X</span><span class="p">,</span> <span class="n">batch_Y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y</span><span class="p">))</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">batch_X</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">gif_path</span> <span class="o">=</span> <span class="s">"Images/val_engine_sample.gif"</span>
+<span class="n">generate_gif</span><span class="p">(</span><span class="n">y_pred_wtte</span><span class="p">,</span> <span class="n">batch_Y</span><span class="p">,</span> <span class="n">gif_path</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">"Validation Sample"</span>
+<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">HTML</span>
+<span class="n">HTML</span><span class="p">(</span><span class="s">'&lt;img src="'</span><span class="o">+</span> <span class="n">gif_path</span> <span class="o">+</span> <span class="s">'"&gt;'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Validation Sample
+</code></pre></div></div>
+
+<p><img src="Images/val_engine_sample.gif" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">batch_X</span><span class="p">,</span> <span class="n">batch_Y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y</span><span class="p">))</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">batch_X</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">gif_path</span> <span class="o">=</span> <span class="s">"Images/test_engine_sample.gif"</span>
+<span class="n">generate_gif</span><span class="p">(</span><span class="n">y_pred_wtte</span><span class="p">,</span> <span class="n">batch_Y</span><span class="p">,</span> <span class="n">gif_path</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">"Test Sample"</span>
+<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">HTML</span>
+<span class="n">HTML</span><span class="p">(</span><span class="s">'&lt;img src="'</span><span class="o">+</span> <span class="n">gif_path</span> <span class="o">+</span> <span class="s">'"&gt;'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Test Sample
+</code></pre></div></div>
+
+<p><img src="Images/test_engine_sample.gif" /></p>
+
+<h2 id="gru-variant">GRU variant</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Masking</span>
+<span class="kn">from</span> <span class="nn">keras.layers.core</span> <span class="kn">import</span> <span class="n">Activation</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="kn">import</span> <span class="n">Sequential</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="kn">import</span> <span class="n">Dense</span><span class="p">,</span> <span class="n">GRU</span><span class="p">,</span> <span class="n">TimeDistributed</span><span class="p">,</span> <span class="n">Lambda</span>
+<span class="kn">from</span> <span class="nn">keras.callbacks</span> <span class="kn">import</span> <span class="n">EarlyStopping</span><span class="p">,</span> <span class="n">TerminateOnNaN</span><span class="p">,</span> <span class="n">ModelCheckpoint</span>
+<span class="kn">import</span> <span class="nn">wtte.weibull</span> <span class="k">as</span> <span class="n">weibull</span>
+<span class="kn">import</span> <span class="nn">wtte.wtte</span> <span class="k">as</span> <span class="n">wtte</span>
+
+<span class="n">baseline_gru_path</span> <span class="o">=</span> <span class="s">"baseline_gru_model_weights"</span>
+
+<span class="c"># Callbacks</span>
+<span class="n">early_stopping</span> <span class="o">=</span> <span class="n">EarlyStopping</span><span class="p">(</span><span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                               <span class="n">min_delta</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">patience</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+                               <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                               <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">)</span>
+<span class="n">checkpoint</span> <span class="o">=</span> <span class="n">ModelCheckpoint</span><span class="p">(</span><span class="n">baseline_gru_path</span><span class="p">,</span>
+                             <span class="n">monitor</span><span class="o">=</span><span class="s">'val_loss'</span><span class="p">,</span>
+                             <span class="n">save_best_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">save_weights_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">mode</span><span class="o">=</span><span class="s">'min'</span><span class="p">,</span>
+                             <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">nb_features</span> <span class="o">=</span> <span class="n">train_X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">nb_out</span> <span class="o">=</span> <span class="n">train_Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="n">init_alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">train_Y_wtte</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Masking</span><span class="p">(</span><span class="n">mask_value</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                  <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="n">max_batch_len</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">)))</span>
+<span class="c"># We substitute LSTM for GRU</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GRU</span><span class="p">(</span>
+         <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="n">nb_features</span><span class="p">),</span>
+         <span class="n">units</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+         <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+         <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">GRU</span><span class="p">(</span>
+          <span class="n">units</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+          <span class="n">recurrent_dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+          <span class="n">return_sequences</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">TimeDistributed</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Lambda</span><span class="p">(</span><span class="n">wtte</span><span class="o">.</span><span class="n">output_lambda</span><span class="p">,</span>
+                 <span class="n">arguments</span><span class="o">=</span><span class="p">{</span><span class="c"># Initialization value around it's scale</span>
+                            <span class="s">"init_alpha"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">train_Y_wtte</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]),</span>
+                            <span class="c"># Set a maximum</span>
+                            <span class="s">"max_beta_value"</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+                            <span class="c"># We set the scalefactor to avoid exploding gradients</span>
+                            <span class="s">"scalefactor"</span><span class="p">:</span> <span class="mf">0.25</span>
+                           <span class="p">},</span>
+                <span class="p">))</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">wtte</span><span class="o">.</span><span class="n">Loss</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="s">'discrete'</span><span class="p">,</span> <span class="n">clip_prob</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span><span class="o">.</span><span class="n">loss_function</span>
+<span class="n">model</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="n">loss</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s">'rmsprop'</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+
+<span class="c"># fit the network</span>
+<span class="n">history</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+                    <span class="n">validation_data</span><span class="o">=</span><span class="p">(</span><span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">callbacks</span> <span class="o">=</span> <span class="p">[</span><span class="n">early_stopping</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="n">TerminateOnNaN</span><span class="p">()])</span>
+
+<span class="c"># list all data in history</span>
+<span class="k">print</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+masking_6 (Masking)          (None, None, 25)          0         
+_________________________________________________________________
+gru_6 (GRU)                  (None, None, 100)         37800     
+_________________________________________________________________
+gru_7 (GRU)                  (None, None, 50)          22650     
+_________________________________________________________________
+time_distributed_5 (TimeDist (None, None, 2)           102       
+_________________________________________________________________
+lambda_5 (Lambda)            (None, None, 2)           0         
+=================================================================
+Total params: 60,552
+Trainable params: 60,552
+Non-trainable params: 0
+_________________________________________________________________
+
+...
+Epoch 379/500
+ - 4s - loss: 2.5791 - val_loss: 2.4811
+Epoch 380/500
+ - 4s - loss: 2.4674 - val_loss: 2.3694
+Epoch 381/500
+ - 4s - loss: 2.4272 - val_loss: 2.3636
+Epoch 382/500
+ - 4s - loss: 2.4483 - val_loss: 2.4244
+Epoch 383/500
+ - 4s - loss: 2.4518 - val_loss: 2.4219
+Epoch 384/500
+ - 4s - loss: 2.4448 - val_loss: 2.3649
+Epoch 385/500
+ - 4s - loss: 2.5142 - val_loss: 2.3681
+Epoch 386/500
+ - 4s - loss: 2.4157 - val_loss: 2.4423
+['loss', 'val_loss']
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if training in Colaboratory (preferably from Chrome)</span>
+<span class="c"># Downloads the model after the training finishes</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">files</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="n">baseline_gru_path</span><span class="p">)</span>
+
+<span class="c"># Move the model to the expected folder</span>
+<span class="err">!</span><span class="n">mv</span> <span class="n">baseline_gru_path</span> <span class="n">Models</span><span class="o">/</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"loss"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s">"blue"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">history</span><span class="o">.</span><span class="n">history</span><span class="p">[</span><span class="s">"val_loss"</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s">"green"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[&lt;matplotlib.lines.Line2D at 0x1a353fcf10&gt;]
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_46_1.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Execute if you want to upload a model to Collaboratory</span>
+
+<span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">files</span>
+<span class="n">uploaded</span> <span class="o">=</span> <span class="n">files</span><span class="o">.</span><span class="n">upload</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">uploaded</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'User uploaded file "{name}" with length {length} bytes'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+      <span class="n">name</span><span class="o">=</span><span class="n">fn</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">uploaded</span><span class="p">[</span><span class="n">fn</span><span class="p">])))</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Compile model first to load weights</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">load_weights</span><span class="p">(</span><span class="s">"Models/"</span> <span class="o">+</span> <span class="n">baseline_gru_path</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># We save the validation errors to later compare the models</span>
+<span class="n">validation_gru</span> <span class="o">=</span> <span class="p">[</span><span class="n">mean_weibull</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">val_X</span><span class="p">)</span>
+                   <span class="k">for</span> <span class="n">beta</span><span class="p">,</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+
+<span class="n">evaluate_and_plot</span><span class="p">(</span><span class="n">model</span><span class="p">,</span>
+                  <span class="p">[(</span><span class="s">"Train"</span><span class="p">,</span> <span class="n">train_X</span><span class="p">,</span> <span class="n">train_Y_wtte</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s">"Validation"</span><span class="p">,</span> <span class="n">val_X</span><span class="p">,</span> <span class="n">val_Y_wtte</span><span class="p">),</span>
+                   <span class="p">(</span><span class="s">"Test"</span><span class="p">,</span> <span class="n">test_X</span><span class="p">,</span> <span class="n">test_Y_wtte</span><span class="p">)],</span>
+                  <span class="n">weibull_function</span> <span class="o">=</span> <span class="n">mean_weibull</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>0</th>
+      <th>1</th>
+      <th>2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Method</th>
+      <td>MAE</td>
+      <td>RMSE</td>
+      <td>R2</td>
+    </tr>
+    <tr>
+      <th>Train</th>
+      <td>20.94</td>
+      <td>33.14</td>
+      <td>0.772</td>
+    </tr>
+    <tr>
+      <th>Validation</th>
+      <td>17.79</td>
+      <td>25.26</td>
+      <td>0.851</td>
+    </tr>
+    <tr>
+      <th>Test</th>
+      <td>26.51</td>
+      <td>37.22</td>
+      <td>0.602</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_49_1.png" alt="png" /></p>
+
+<h1 id="result">Result</h1>
+
+<p>The are three models:</p>
+<ul>
+  <li>baseline</li>
+  <li>baseline WTTE-RNN LSTM</li>
+  <li>baseline WTTE-RNN GRU</li>
+</ul>
+
+<p>The mean is used as the expected value of the RUL.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="n">sns</span>
+
+<span class="n">l</span> <span class="o">=</span> <span class="n">val_Y</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+<span class="n">y_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">l</span><span class="p">))</span>
+<span class="n">y_pred_baseline</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">validation_baseline</span><span class="p">))</span>
+<span class="n">y_pred_wtte</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">validation_wtte</span><span class="p">))</span>
+<span class="n">y_pred_gru</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">compressed</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">masked_where</span><span class="p">(</span><span class="n">l</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span> <span class="n">validation_gru</span><span class="p">))</span>
+
+
+<span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+<span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">violinplot</span><span class="p">([</span><span class="n">y_pred_baseline</span> <span class="o">-</span> <span class="n">y_true</span><span class="p">,</span>
+                    <span class="n">y_pred_wtte</span> <span class="o">-</span> <span class="n">y_true</span><span class="p">,</span>
+                    <span class="n">y_pred_gru</span> <span class="o">-</span> <span class="n">y_true</span><span class="p">])</span>
+
+<span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figtext</span><span class="p">(</span><span class="mf">0.21</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s">' Baseline'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figtext</span><span class="p">(</span><span class="mf">0.480</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s">' Baseline WTTE'</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figtext</span><span class="p">(</span><span class="mf">0.76</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s">' Baseline GRU'</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><img src="assets/images/rnn-time-to-event-notebook_51_0.png" alt="png" /></p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+</code></pre></div></div>
 
         
       </section>

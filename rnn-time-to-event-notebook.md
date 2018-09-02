@@ -1,28 +1,7 @@
----
-layout: single
-author_profile: true
-title: ""
-header:
-  image: /assets/images/header.png
-  caption: "Photo credit: [**Unsplash**](https://unsplash.com)"
-  cta_label: "More Info"
-  cta_url: "https://unsplash.com"
----
-
-# rnn-time-to-event
-
-(in construction)
-
-An approximation of Recurrent Neural Networks to predict the Time to an Event
-
-![useful image](/assets/images/gif1.gif)
-
 
 [View in Colaboratory](https://colab.research.google.com/github/Manelmc/rnn-time-to-event/blob/master/predictive-maintenance-turbofan-engine.ipynb)
 
-# Notebook
-
-Predictive Maintenance for the Turbofan Engine Dataset
+# Predictive Maintenance for the Turbofan Engine Dataset
 
 
 ## Data Preparation
