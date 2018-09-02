@@ -1,14 +1,7 @@
-# rnn-time-to-event
-An approximation of Recurrent Neural Networks to predict the Time to an Event
-
-
-![Alt Text](https://github.com/Manelmc/rnn-time-to-event/blob/master/Images/train_engine_sample.gif)
-
-# Notebook
-
-Predictive Maintenance for the Turbofan Engine Dataset
 
 [View in Colaboratory](https://colab.research.google.com/github/Manelmc/rnn-time-to-event/blob/master/predictive-maintenance-turbofan-engine.ipynb)
+
+# Predictive Maintenance for the Turbofan Engine Dataset
 
 
 ## Data Preparation
@@ -614,9 +607,7 @@ print(history.history.keys())
     Trainable params: 80,651
     Non-trainable params: 0
     _________________________________________________________________
-
     ...
-    Epoch 308/500
      - 14s - loss: 1145.8300 - val_loss: 684.7579
     Epoch 309/500
      - 15s - loss: 1483.2823 - val_loss: 665.0914
@@ -671,7 +662,7 @@ plt.plot(history.history["val_loss"])
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_16_1.png)
+![png](assets/images/rnn-time-to-event-notebook_16_1.png)
 
 
 
@@ -816,7 +807,7 @@ evaluate_and_plot(model,
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_19_1.png)
+![png](assets/images/rnn-time-to-event-notebook_19_1.png)
 
 
 ## Adapting to WTTE-RNN
@@ -967,10 +958,6 @@ print(history.history.keys())
     Non-trainable params: 0
     _________________________________________________________________
     ...
-     - 12s - loss: 2.6556 - val_loss: 2.6068
-    Epoch 351/500
-     - 12s - loss: 2.6599 - val_loss: 2.4514
-    Epoch 352/500
      - 12s - loss: 2.5586 - val_loss: 2.4429
     Epoch 353/500
      - 13s - loss: 2.5923 - val_loss: 2.5299
@@ -1014,7 +1001,7 @@ plt.plot(history.history["val_loss"])
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_26_1.png)
+![png](assets/images/rnn-time-to-event-notebook_26_1.png)
 
 
 
@@ -1152,7 +1139,7 @@ print evaluate_and_plot(model,
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_33_1.png)
+![png](assets/images/rnn-time-to-event-notebook_33_1.png)
 
 
 ### Evolution of the pdf through the cycles of an engine (PLOT)
@@ -1206,7 +1193,7 @@ fig.set_size_inches(10,10)
 ```
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_35_0.png)
+![png](assets/images/rnn-time-to-event-notebook_35_0.png)
 
 
 ### Confidence Interval of the Weibull Distribution
@@ -1246,7 +1233,7 @@ fig.set_size_inches(10,5)
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_37_1.png)
+![png](assets/images/rnn-time-to-event-notebook_37_1.png)
 
 
 ### Evolution of the pdf through the cycles of an engine (GIFs)
@@ -1473,15 +1460,8 @@ print(history.history.keys())
     Trainable params: 60,552
     Non-trainable params: 0
     _________________________________________________________________
+
     ...
-    Epoch 375/500
-     - 4s - loss: 2.4002 - val_loss: 2.3670
-    Epoch 376/500
-     - 4s - loss: 2.4147 - val_loss: 2.4717
-    Epoch 377/500
-     - 5s - loss: 2.4389 - val_loss: 2.3871
-    Epoch 378/500
-     - 4s - loss: 2.4691 - val_loss: 2.4032
     Epoch 379/500
      - 4s - loss: 2.5791 - val_loss: 2.4811
     Epoch 380/500
@@ -1529,7 +1509,7 @@ plt.plot(history.history["val_loss"], color="green")
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_46_1.png)
+![png](assets/images/rnn-time-to-event-notebook_46_1.png)
 
 
 
@@ -1623,7 +1603,7 @@ evaluate_and_plot(model,
 
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_49_1.png)
+![png](assets/images/rnn-time-to-event-notebook_49_1.png)
 
 
 # Result
@@ -1662,7 +1642,7 @@ fig.set_size_inches(15, 10)
 ```
 
 
-![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_51_0.png)
+![png](assets/images/rnn-time-to-event-notebook_51_0.png)
 
 
 
