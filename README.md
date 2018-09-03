@@ -10,8 +10,8 @@ Predictive Maintenance for the Turbofan Engine Dataset
 
 [View in Colaboratory](https://colab.research.google.com/github/Manelmc/rnn-time-to-event/blob/master/predictive-maintenance-turbofan-engine.ipynb)
 
-
 ## Data Preparation
+
 
 
 ```python
@@ -614,15 +614,9 @@ print(history.history.keys())
     Trainable params: 80,651
     Non-trainable params: 0
     _________________________________________________________________
-
+    None
+    Train on 80 samples, validate on 20 samples
     ...
-    Epoch 308/500
-     - 14s - loss: 1145.8300 - val_loss: 684.7579
-    Epoch 309/500
-     - 15s - loss: 1483.2823 - val_loss: 665.0914
-    Epoch 310/500
-     - 15s - loss: 1484.7324 - val_loss: 676.9185
-    Epoch 311/500
      - 15s - loss: 1204.1237 - val_loss: 621.4485
     Epoch 312/500
      - 15s - loss: 1293.4628 - val_loss: 611.2367
@@ -966,10 +960,9 @@ print(history.history.keys())
     Trainable params: 80,702
     Non-trainable params: 0
     _________________________________________________________________
+    None
+    Train on 80 samples, validate on 20 samples
     ...
-     - 12s - loss: 2.6556 - val_loss: 2.6068
-    Epoch 351/500
-     - 12s - loss: 2.6599 - val_loss: 2.4514
     Epoch 352/500
      - 12s - loss: 2.5586 - val_loss: 2.4429
     Epoch 353/500
@@ -1473,15 +1466,9 @@ print(history.history.keys())
     Trainable params: 60,552
     Non-trainable params: 0
     _________________________________________________________________
+    None
+    Train on 80 samples, validate on 20 samples
     ...
-    Epoch 375/500
-     - 4s - loss: 2.4002 - val_loss: 2.3670
-    Epoch 376/500
-     - 4s - loss: 2.4147 - val_loss: 2.4717
-    Epoch 377/500
-     - 5s - loss: 2.4389 - val_loss: 2.3871
-    Epoch 378/500
-     - 4s - loss: 2.4691 - val_loss: 2.4032
     Epoch 379/500
      - 4s - loss: 2.5791 - val_loss: 2.4811
     Epoch 380/500
@@ -1600,21 +1587,21 @@ evaluate_and_plot(model,
     </tr>
     <tr>
       <th>Train</th>
-      <td>20.94</td>
-      <td>33.14</td>
-      <td>0.772</td>
+      <td>15.94</td>
+      <td>25.90</td>
+      <td>0.861</td>
     </tr>
     <tr>
       <th>Validation</th>
-      <td>17.79</td>
-      <td>25.26</td>
-      <td>0.851</td>
+      <td>18.30</td>
+      <td>27.46</td>
+      <td>0.824</td>
     </tr>
     <tr>
       <th>Test</th>
-      <td>26.51</td>
-      <td>37.22</td>
-      <td>0.602</td>
+      <td>25.82</td>
+      <td>36.70</td>
+      <td>0.613</td>
     </tr>
   </tbody>
 </table>
@@ -1663,9 +1650,3 @@ fig.set_size_inches(15, 10)
 
 
 ![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_51_0.png)
-
-
-
-```python
-
-```

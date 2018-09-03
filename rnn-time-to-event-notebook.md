@@ -3656,21 +3656,21 @@ evaluate_and_plot(model,
     </tr>
     <tr>
       <th>Train</th>
-      <td>20.94</td>
-      <td>33.14</td>
-      <td>0.772</td>
+      <td>15.94</td>
+      <td>25.90</td>
+      <td>0.861</td>
     </tr>
     <tr>
       <th>Validation</th>
-      <td>17.79</td>
-      <td>25.26</td>
-      <td>0.851</td>
+      <td>18.30</td>
+      <td>27.46</td>
+      <td>0.824</td>
     </tr>
     <tr>
       <th>Test</th>
-      <td>26.51</td>
-      <td>37.22</td>
-      <td>0.602</td>
+      <td>25.82</td>
+      <td>36.70</td>
+      <td>0.613</td>
     </tr>
   </tbody>
 </table>
@@ -3720,8 +3720,3 @@ fig.set_size_inches(15, 10)
 
 ![png](rnn-time-to-event-notebook_files/rnn-time-to-event-notebook_51_0.png)
 
-
-
-```python
-
-```
