@@ -77,7 +77,7 @@ plotly==1.12.12
 portpicker==1.2.0
 prompt-toolkit==1.0.15
 protobuf==3.6.1
-psutil==5.4.7
+psutil==5.6.6
 ptyprocess==0.6.0
 pyasn1==0.4.4
 pyasn1-modules==0.2.2
