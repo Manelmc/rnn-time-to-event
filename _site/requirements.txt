@@ -37,7 +37,7 @@ googleapis-common-protos==1.5.3
 grpcio==1.14.1
 h5py==2.8.0
 html5lib==1.0.1
-httplib2==0.11.3
+httplib2==0.18.0
 idna==2.6
 ipykernel==4.6.1
 ipython==5.5.0
