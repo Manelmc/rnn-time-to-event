@@ -42,7 +42,7 @@ idna==2.6
 ipykernel==4.6.1
 ipython==5.5.0
 ipython-genutils==0.2.0
-Jinja2==2.10
+Jinja2==2.11.3
 joblib==0.12.2
 jsonschema==2.6.0
 jupyter-client==5.2.3
